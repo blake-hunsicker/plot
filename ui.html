@@ -1,0 +1,89 @@
+<script src="https://unpkg.com/codeflask/build/codeflask.min.js"></script>
+
+
+<div class="container">
+  <div class="configure">
+    <!-- Upload CSV -->
+    <form method="post" enctype="multipart/form-data" id="my-form">
+      <div>
+        <button>Submit</button>
+      </div>
+      <div class="code-editor"></div>
+    </form>
+  </div>
+  <div class="preview">
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script src="https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script>
+
+  // Making the code editor
+  let editorElem = document.querySelector('.code-editor');
+  let editor = new CodeFlask(editorElem, {
+    language: 'js',
+    lineNumbers: true
+  })
+
+  let startingCode = String.raw `// 🕯 Welcome 🕯 to the chart builder
+// This generates plot.js charts using data from this sheet: https://docs.google.com/spreadsheets/d/1UndsYHPyCJ0YQTYMe1u9pJCmmOyCGx-Ts3McejcQHuw/edit?usp=sharing
+// Find plot.js code at https://observablehq.com/plot/features/marks
+
+// Messari data viz colors
+let darkColors = ["#537fc6","#c67f53","#c653b4","#b4c653","#53c67f","#5353c6","#53b4c6","#c65353","#537f7f","#7f5353","#7a7a7a"]
+
+Plot.plot({
+  x: {label: null, tickRotate: 60},
+  y: {grid: true},
+  marks: [
+    Plot.barY(data, {x: "Date", y: "Deposits", fill: darkColors[0]}),
+    Plot.areaY(data, {x: "Date", y: "Borrows", fill: darkColors[7]})
+  ]
+}).outerHTML`
+
+  editor.updateCode(startingCode)
+
+  let aaveData = `https://docs.google.com/spreadsheets/d/e/2PACX-1vQWVs4pPEEZLX7fyf6NCUJa-NXPeUAVw6tPGnF3XCFYY_QtYGVXy1PRzKatnsCfz4iibUIVR_JtF4yB/pub?gid=1417792831&single=true&output=csv`
+  const proxiedURL = 'https://corsproxy.io/?' + encodeURIComponent(aaveData);
+  let data
+  
+  Papa.parse(proxiedURL, {
+    worker: true,
+    download: true,
+    header: true,
+    complete: function(results) {
+      console.log(results);
+      data = results.data;
+    }
+  })
+  
+  // Generating the chart
+  const myForm = document.querySelector("#my-form")
+
+  myForm.addEventListener("submit", function (e) {
+    e.preventDefault()
+
+    let chartCode = editor.getCode()
+    
+    async function executeCode () {
+      let result = await eval(chartCode)
+      console.log(`result is `,result)
+      parent.postMessage({ pluginMessage: result }, '*')
+    }
+    executeCode(chartCode)
+    // getData(chartCode)
+  })
+
+</script>
+<style>
+  body {
+    padding: 0;
+    margin: 0;
+  }
+  /* .code-editor {
+    max-width: 90vw;
+    max-height: 90vh;
+  } */
+</style>
